@@ -20,7 +20,24 @@ Speak in polite keigo appropriate for medical/service industry.
 
 ## Test Scenarios
 1. Patient calls to book an appointment for next Tuesday
+   - Should greet caller politely in keigo
+   - Should ask for preferred date and time
+   - Should confirm booking details back to patient
+   - Should not hallucinate available time slots
 2. Patient calls to cancel their 3pm appointment
+   - Should verify patient identity (name or booking reference)
+   - Should confirm which appointment to cancel
+   - Should acknowledge cancellation politely
 3. Patient asks about available procedures and pricing
+   - Should list relevant procedures without fabricating names
+   - Should not make up specific prices unless provided in context
+   - Should offer to connect with staff for detailed pricing
 4. Patient interrupts with urgent question about pain
+   - Should stop current response and address interruption
+   - Should respond with appropriate urgency
+   - Should suggest immediate action (visit clinic or emergency)
 5. Patient gives long explanation of symptoms (tests backchannel)
+   - Should produce natural aizuchi during patient speech
+   - Should not interrupt the patient
+   - Should summarize understanding after patient finishes
+   - Should ask clarifying follow-up questions

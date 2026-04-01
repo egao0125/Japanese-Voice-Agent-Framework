@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from jvaf.config import PipelineConfig
 
+from .audio_gen import AudioGenerator
 from .config import AutoresearchConfig
 from .evaluator import EvalScore, PipelineEvaluator
 from .log import ExperimentEntry, ExperimentLog
@@ -18,13 +18,14 @@ class AutoresearchLoop:
     """Autonomous pipeline optimization loop.
 
     1. READ program goals + experiment history
-    2. PROPOSE a pipeline config change
-    3. BUILD pipeline with proposed config
-    4. TEST via simulated conversations
-    5. EVALUATE against goals
-    6. KEEP or DISCARD based on score improvement
-    7. LOG to experiment history
-    8. GOTO 1
+    2. GENERATE test audio (once, cached for all iterations)
+    3. PROPOSE a pipeline config change
+    4. BUILD pipeline with proposed config
+    5. TEST via simulated conversations (real audio → real STT → real LLM)
+    6. EVALUATE against goals (LLM-as-judge for real backends)
+    7. KEEP or DISCARD based on score improvement
+    8. LOG to experiment history
+    9. GOTO 3
     """
 
     def __init__(
@@ -40,13 +41,20 @@ class AutoresearchLoop:
         self._output_dir = Path(output_dir)
         self._output_dir.mkdir(parents=True, exist_ok=True)
 
+        self._backend = backend
         self._log = ExperimentLog(self._output_dir / "log.tsv")
         self._proposer = PipelineProposer(
             backend=backend,
             available_providers=program.available_providers or None,
         )
         self._simulator = ConversationSimulator()
-        self._evaluator = PipelineEvaluator()
+        self._evaluator = PipelineEvaluator(
+            backend=backend,
+            use_case=program.use_case,
+        )
+        self._audio_gen = AudioGenerator(
+            cache_dir=self._output_dir / "audio_cache",
+        )
 
         self._best_config = self._base_config.model_copy(deep=True)
         self._best_score = self._log.best_score() if self._log.entries else 0.0
@@ -70,6 +78,11 @@ class AutoresearchLoop:
         print(f"  Scenarios: {len(self._program.test_scenarios)}")
         print(f"  Providers: {provider_summary}")
         print(f"  Output: {self._output_dir}")
+
+        # Generate test audio (one-time, cached)
+        if self._backend != "mock":
+            await self._prepare_audio()
+
         print()
 
         for i in range(n):
@@ -98,7 +111,35 @@ class AutoresearchLoop:
         # Generate lessons
         self._write_lessons()
 
+        # Cleanup
+        await self._audio_gen.cleanup()
+
         return summary
+
+    async def _prepare_audio(self) -> None:
+        """Generate test audio for all scenarios (one-time setup).
+
+        Uses available TTS to synthesize scripted user utterances into
+        WAV files. These are fed through the real pipeline so STT
+        transcribes real speech instead of noise.
+        """
+        # Ensure scenarios have utterances
+        for scenario in self._program.test_scenarios:
+            if not scenario.user_utterances:
+                scenario.user_utterances = self._simulator._generate_default_utterances(  # noqa: SLF001
+                    scenario
+                )
+
+        provider = await self._audio_gen.setup()
+        print(f"  Audio: generating with {provider}")
+
+        audio_cache = await self._audio_gen.generate_all(
+            self._program.test_scenarios
+        )
+        self._simulator.set_audio_cache(audio_cache)
+
+        total_files = sum(len(paths) for paths in audio_cache.values())
+        print(f"  Audio: {total_files} files cached")
 
     async def _run_iteration(self, iter_num: int) -> None:
         """Run a single propose → test → eval → keep/discard iteration."""
@@ -111,8 +152,11 @@ class AutoresearchLoop:
             proposal.config, self._program.test_scenarios
         )
 
-        # 3. EVALUATE
-        score = self._evaluator.evaluate(results, self._program)
+        # 3. EVALUATE (content judge for real backends, parametric for mock)
+        if self._backend != "mock":
+            score = await self._evaluator.evaluate_with_content(results, self._program)
+        else:
+            score = self._evaluator.evaluate(results, self._program)
 
         # 4. KEEP or DISCARD
         kept = score.overall > self._best_score

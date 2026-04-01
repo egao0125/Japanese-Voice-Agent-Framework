@@ -34,8 +34,8 @@ async def test_simulator_default_utterances():
     sim = ConversationSimulator()
     results = await sim.run_all(config, [scenario])
 
-    # run_all adds default utterances, so turn_count should be 3
-    assert results[0].turn_count == 3
+    # run_all adds default realistic Japanese utterances (3-4 per scenario)
+    assert results[0].turn_count >= 3
 
 
 @pytest.mark.asyncio

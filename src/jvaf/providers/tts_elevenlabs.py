@@ -46,15 +46,14 @@ class ElevenLabsTTS(TTSProvider):
     async def synthesize_to_bytes(self, text: str) -> bytes:
         from elevenlabs import VoiceSettings
 
-        kwargs = {
-            "text": text,
-            "model_id": self._model,
-            "voice_settings": VoiceSettings(stability=0.5, similarity_boost=0.75),
-        }
-        if self._voice_id:
-            kwargs["voice_id"] = self._voice_id
+        voice = self._voice_id or "JBFqnCBsd6RMkjVDRZzb"  # default: George
 
-        audio_iter = await self._client.text_to_speech.convert(**kwargs)
+        audio_iter = await self._client.text_to_speech.convert(
+            voice_id=voice,
+            text=text,
+            model_id=self._model,
+            voice_settings=VoiceSettings(stability=0.5, similarity_boost=0.75),
+        )
 
         # Collect all audio chunks (MP3 bytes)
         mp3_chunks = []

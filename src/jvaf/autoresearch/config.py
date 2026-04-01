@@ -9,11 +9,16 @@ from pathlib import Path
 
 @dataclass
 class TestScenario:
-    """A single test scenario for evaluation."""
+    """A single test scenario for evaluation.
+
+    expected_behaviors define what the agent SHOULD do — these become
+    the benchmark criteria that the content judge scores against.
+    """
 
     name: str
     description: str
     user_utterances: list[str] = field(default_factory=list)
+    expected_behaviors: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -153,7 +158,16 @@ def _detect_providers(constraints: dict[str, str]) -> dict[str, list[str]]:
 
 
 def _parse_scenarios(text: str) -> list[TestScenario]:
-    """Parse numbered scenario list into TestScenario objects."""
+    """Parse numbered scenario list with expected behaviors.
+
+    Format:
+        1. Patient calls to book appointment
+           - Should greet politely in keigo
+           - Should ask for preferred date/time
+           - Should confirm booking details
+        2. Patient cancels
+           - Should verify identity first
+    """
     scenarios: list[TestScenario] = []
     for line in text.splitlines():
         line = line.strip()
@@ -161,4 +175,8 @@ def _parse_scenarios(text: str) -> list[TestScenario]:
         if match:
             desc = match.group(1).strip()
             scenarios.append(TestScenario(name=f"scenario_{len(scenarios) + 1}", description=desc))
+        elif line.startswith("-") and scenarios:
+            behavior = line[1:].strip()
+            if behavior:
+                scenarios[-1].expected_behaviors.append(behavior)
     return scenarios
