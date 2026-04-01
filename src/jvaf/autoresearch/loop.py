@@ -60,9 +60,15 @@ class AutoresearchLoop:
         n = iterations or self._program.iterations
         start_iter = len(self._log.entries)
 
+        avail = self._program.available_providers
+        provider_summary = ", ".join(
+            f"{cat}:[{','.join(ps)}]" for cat, ps in avail.items() if len(ps) > 1
+        ) if avail else "mock only"
+
         print(f"Starting autoresearch: {n} iterations")
         print(f"  Goals: {len(self._program.goals)}")
         print(f"  Scenarios: {len(self._program.test_scenarios)}")
+        print(f"  Providers: {provider_summary}")
         print(f"  Output: {self._output_dir}")
         print()
 
@@ -84,6 +90,7 @@ class AutoresearchLoop:
         }
 
         print(f"\nAutoresearch complete:")
+        print(f"  Final phase: {self._proposer.phase.value}")
         print(f"  Kept: {self._kept_count}/{n}")
         print(f"  Best score: {self._best_score:.4f}")
         print(f"  Best config: {best_dir / 'config.yaml'}")
