@@ -20,6 +20,7 @@ def main(argv: list[str] | None = None) -> None:
     ar.add_argument("program", type=str, help="Path to program.md")
     ar.add_argument("--iterations", "-n", type=int, default=10, help="Number of iterations")
     ar.add_argument("--backend", type=str, default="mock", help="Backend: mock or llm")
+    ar.add_argument("--config", "-c", type=str, default=None, help="Base pipeline config.yaml to improve upon")
     ar.add_argument("--output", "-o", type=str, default="experiments", help="Output directory")
 
     # run
@@ -46,14 +47,21 @@ def main(argv: list[str] | None = None) -> None:
 
 async def _cmd_autoresearch(args: argparse.Namespace) -> None:
     from jvaf.autoresearch import AutoresearchConfig, AutoresearchLoop
+    from jvaf.config import PipelineConfig
 
     program = AutoresearchConfig.from_markdown(args.program)
     program.iterations = args.iterations
     program.backend = args.backend
     program.output_dir = args.output
 
+    base_config = None
+    if args.config:
+        base_config = PipelineConfig.from_yaml(args.config)
+        print(f"Base config: {args.config}")
+
     loop = AutoresearchLoop(
         program,
+        base_config=base_config,
         output_dir=args.output,
         backend=args.backend,
     )

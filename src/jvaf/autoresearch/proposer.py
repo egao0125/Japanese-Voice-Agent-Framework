@@ -125,6 +125,7 @@ class PipelineProposer:
         backend: str = "mock",
         available_providers: dict[str, list[str]] | None = None,
         stagnation_limit: int = 5,
+        focus_params: set[str] | None = None,
     ):
         self._backend = backend
         self._available = available_providers or {
@@ -134,6 +135,7 @@ class PipelineProposer:
             "vad": ["energy"],
         }
         self._stagnation_limit = stagnation_limit
+        self._focus_params = focus_params or set()
 
         # Phase state
         self._phase = SearchPhase.TOURNAMENT
@@ -146,16 +148,63 @@ class PipelineProposer:
         self._revalidation_baseline = 0.0
         self._revalidation_found_better = False
 
+        # Build mutation order (focus-aware)
+        self._mutations = self._build_mutation_order()
+
         # Build tournament queue
         self._init_tournament()
 
+    def _build_mutation_order(self) -> list[tuple[str, str, dict]]:
+        """Order mutations with focus-relevant ones first.
+
+        If the user specified improvement focus areas, mutations matching
+        those areas are placed at the front so they get tested first.
+        """
+        if not self._focus_params:
+            return list(_THRESHOLD_MUTATIONS)
+
+        focused = []
+        rest = []
+        for mutation in _THRESHOLD_MUTATIONS:
+            _, path, _ = mutation
+            if path in self._focus_params:
+                focused.append(mutation)
+            else:
+                rest.append(mutation)
+        return focused + rest
+
     def _init_tournament(self) -> None:
-        """Queue up all provider tests for Phase 1."""
+        """Queue up all provider tests for Phase 1.
+
+        If focus includes provider categories, prioritize those
+        categories first in the tournament.
+        """
         self._tournament_queue = []
-        for cat in CATEGORIES:
+
+        # Determine priority categories from focus
+        priority_cats = []
+        if self._focus_params:
+            for param in self._focus_params:
+                if param == "provider_stt" and "stt" not in priority_cats:
+                    priority_cats.append("stt")
+                elif param == "provider_llm" and "llm" not in priority_cats:
+                    priority_cats.append("llm")
+                elif param == "provider_tts" and "tts" not in priority_cats:
+                    priority_cats.append("tts")
+                elif param == "provider_latency":
+                    # Latency focus → test all provider categories
+                    for c in CATEGORIES:
+                        if c not in priority_cats:
+                            priority_cats.append(c)
+
+        # Order: priority categories first, then the rest
+        ordered_cats = priority_cats + [c for c in CATEGORIES if c not in priority_cats]
+
+        for cat in ordered_cats:
             providers = self._available.get(cat, [])
             for provider in providers:
                 self._tournament_queue.append((cat, provider))
+
         # Skip tournament if only one provider per category
         if all(len(self._available.get(c, [])) <= 1 for c in CATEGORIES):
             self._phase = SearchPhase.TUNING
@@ -314,8 +363,8 @@ class PipelineProposer:
     # ------------------------------------------------------------------
 
     def _propose_tuning(self, base_config: PipelineConfig) -> Proposal:
-        """Cycle through threshold mutations."""
-        mutation = _THRESHOLD_MUTATIONS[self._tuning_idx % len(_THRESHOLD_MUTATIONS)]
+        """Cycle through threshold mutations (focus-prioritized)."""
+        mutation = self._mutations[self._tuning_idx % len(self._mutations)]
         self._tuning_idx += 1
 
         hypothesis, path, spec = mutation

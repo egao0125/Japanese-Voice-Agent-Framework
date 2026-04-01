@@ -33,6 +33,7 @@ class AutoresearchConfig:
     use_case: str = ""
     goals: dict[str, str] = field(default_factory=dict)
     constraints: dict[str, str] = field(default_factory=dict)
+    improvement_focus: list[str] = field(default_factory=list)
     test_scenarios: list[TestScenario] = field(default_factory=list)
     available_providers: dict[str, list[str]] = field(default_factory=dict)
     iterations: int = 50
@@ -81,6 +82,12 @@ class AutoresearchConfig:
                 config.test_scenarios = _parse_scenarios(sections[key])
                 break
 
+        # Improvement focus
+        for key in ("improve", "focus", "improvement", "improvements"):
+            if key in sections:
+                config.improvement_focus = _parse_list(sections[key])
+                break
+
         # Parse available providers from constraints
         config.available_providers = _detect_providers(config.constraints)
 
@@ -92,6 +99,67 @@ class AutoresearchConfig:
             f"{len(self.test_scenarios)} scenarios, "
             f"{self.iterations} iterations, backend={self.backend}"
         )
+
+
+def _parse_list(text: str) -> list[str]:
+    """Parse bullet list lines into a flat list of strings."""
+    items = []
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("-"):
+            item = line[1:].strip()
+            if item:
+                items.append(item)
+    return items
+
+
+# Maps improvement focus keywords → proposer mutation categories
+FOCUS_KEYWORDS: dict[str, list[str]] = {
+    # Latency-related
+    "latency": ["turn_taking.silence_threshold_sec", "provider_latency"],
+    "speed": ["turn_taking.silence_threshold_sec", "provider_latency"],
+    "response time": ["turn_taking.silence_threshold_sec", "provider_latency"],
+    "ttfb": ["turn_taking.silence_threshold_sec", "provider_latency"],
+    # Backchannel-related
+    "backchannel": ["backchannel.min_interval_sec", "backchannel.min_speech_before_bc_sec", "backchannel.triggers"],
+    "aizuchi": ["backchannel.min_interval_sec", "backchannel.min_speech_before_bc_sec", "backchannel.triggers"],
+    # Turn-taking
+    "turn-taking": ["turn_taking.silence_threshold_sec", "vad.threshold_db", "vad.min_speech_ms", "vad.min_silence_ms"],
+    "turn taking": ["turn_taking.silence_threshold_sec", "vad.threshold_db", "vad.min_speech_ms", "vad.min_silence_ms"],
+    "interruption": ["barge_in.min_chars", "vad.min_speech_ms"],
+    "barge-in": ["barge_in.min_chars"],
+    "barge in": ["barge_in.min_chars"],
+    # STT accuracy
+    "stt": ["provider_stt"],
+    "transcription": ["provider_stt"],
+    "accuracy": ["provider_stt"],
+    # LLM quality
+    "llm": ["provider_llm", "llm.temperature"],
+    "response quality": ["provider_llm", "llm.temperature"],
+    "keigo": ["provider_llm", "llm.temperature"],
+    "hallucination": ["provider_llm", "llm.temperature"],
+    # TTS quality
+    "tts": ["provider_tts"],
+    "voice": ["provider_tts"],
+    "naturalness": ["provider_tts"],
+    # VAD
+    "vad": ["vad.threshold_db", "vad.min_speech_ms", "vad.min_silence_ms"],
+    "detection": ["vad.threshold_db", "vad.min_speech_ms", "vad.min_silence_ms"],
+}
+
+
+def detect_focus_params(focus_items: list[str]) -> set[str]:
+    """Map improvement focus items to relevant config parameter paths.
+
+    Returns a set of parameter paths (e.g. 'vad.threshold_db', 'provider_stt')
+    that the proposer should prioritize.
+    """
+    params: set[str] = set()
+    focus_text = " ".join(focus_items).lower()
+    for keyword, param_paths in FOCUS_KEYWORDS.items():
+        if keyword in focus_text:
+            params.update(param_paths)
+    return params
 
 
 def _parse_kv_list(text: str) -> dict[str, str]:

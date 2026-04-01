@@ -48,9 +48,52 @@ class PipelineEvaluator:
     - naturalness: conversation flow
     """
 
-    def __init__(self, *, backend: str = "mock", use_case: str = ""):
+    # Default weights
+    _DEFAULT_WEIGHTS = {
+        "quality": 0.35,
+        "latency": 0.25,
+        "stability": 0.20,
+        "backchannel": 0.10,
+        "throughput": 0.10,
+    }
+
+    def __init__(
+        self,
+        *,
+        backend: str = "mock",
+        use_case: str = "",
+        focus_params: set[str] | None = None,
+    ):
         self._judge = ContentJudge(backend=backend, use_case=use_case)
         self._backend = backend
+        self._weights = self._compute_weights(focus_params or set())
+
+    def _compute_weights(self, focus_params: set[str]) -> dict[str, float]:
+        """Adjust metric weights based on improvement focus.
+
+        If user says 'improve latency', latency weight increases.
+        If 'improve backchannel', backchannel weight increases.
+        Weights are normalized to sum to 1.0.
+        """
+        if not focus_params:
+            return dict(self._DEFAULT_WEIGHTS)
+
+        weights = dict(self._DEFAULT_WEIGHTS)
+
+        # Boost weights for focused areas
+        focus_text = " ".join(focus_params)
+        if "latency" in focus_text or "silence_threshold" in focus_text:
+            weights["latency"] += 0.15
+        if "backchannel" in focus_text or "triggers" in focus_text:
+            weights["backchannel"] += 0.15
+        if "provider_stt" in focus_text or "provider_llm" in focus_text or "provider_tts" in focus_text:
+            weights["quality"] += 0.10
+        if "threshold_db" in focus_text or "min_speech" in focus_text or "min_silence" in focus_text:
+            weights["stability"] += 0.05
+
+        # Normalize to 1.0
+        total = sum(weights.values())
+        return {k: v / total for k, v in weights.items()}
 
     def evaluate(
         self, results: list[SimulationResult], config: AutoresearchConfig
@@ -113,15 +156,8 @@ class PipelineEvaluator:
         metrics["throughput"] = throughput
         details["throughput"] = f"{total_turns} turns"
 
-        # Overall: weighted average
-        weights = {
-            "quality": 0.35,
-            "latency": 0.25,
-            "stability": 0.20,
-            "backchannel": 0.10,
-            "throughput": 0.10,
-        }
-        overall = sum(metrics.get(k, 0.5) * w for k, w in weights.items())
+        # Overall: weighted average (focus-adjusted)
+        overall = sum(metrics.get(k, 0.5) * w for k, w in self._weights.items())
 
         return EvalScore(overall=overall, metrics=metrics, details=details)
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from jvaf.config import PipelineConfig
 
 from .audio_gen import AudioGenerator
-from .config import AutoresearchConfig
+from .config import AutoresearchConfig, detect_focus_params
 from .evaluator import EvalScore, PipelineEvaluator
 from .log import ExperimentEntry, ExperimentLog
 from .proposer import PipelineProposer
@@ -43,14 +43,17 @@ class AutoresearchLoop:
 
         self._backend = backend
         self._log = ExperimentLog(self._output_dir / "log.tsv")
+        self._focus_params = detect_focus_params(program.improvement_focus)
         self._proposer = PipelineProposer(
             backend=backend,
             available_providers=program.available_providers or None,
+            focus_params=self._focus_params,
         )
         self._simulator = ConversationSimulator()
         self._evaluator = PipelineEvaluator(
             backend=backend,
             use_case=program.use_case,
+            focus_params=self._focus_params,
         )
         self._audio_gen = AudioGenerator(
             cache_dir=self._output_dir / "audio_cache",
@@ -77,6 +80,8 @@ class AutoresearchLoop:
         print(f"  Goals: {len(self._program.goals)}")
         print(f"  Scenarios: {len(self._program.test_scenarios)}")
         print(f"  Providers: {provider_summary}")
+        if self._focus_params:
+            print(f"  Focus: {', '.join(sorted(self._focus_params))}")
         print(f"  Output: {self._output_dir}")
 
         # Generate test audio (one-time, cached)
