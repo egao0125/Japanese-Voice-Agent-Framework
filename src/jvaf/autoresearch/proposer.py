@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import copy
 import random
 from dataclasses import dataclass
+from typing import Any
 
 from jvaf.autoresearch.config import AutoresearchConfig
 from jvaf.autoresearch.log import ExperimentLog
 from jvaf.config import PipelineConfig
+from jvaf.providers.registry import PROVIDER_DEFAULTS
 
 
 @dataclass
@@ -20,8 +21,8 @@ class Proposal:
     diff: dict
 
 
-# Predefined mutation strategies for mock backend
-_MUTATIONS: list[tuple[str, str, dict]] = [
+# Predefined threshold mutations
+_THRESHOLD_MUTATIONS: list[tuple[str, str, dict]] = [
     (
         "Lower VAD threshold for better speech detection",
         "vad.threshold_db",
@@ -71,19 +72,64 @@ _MUTATIONS: list[tuple[str, str, dict]] = [
             ],
         },
     ),
+    (
+        "Adjust LLM temperature",
+        "llm.temperature",
+        {"field": "llm", "sub": "temperature", "values": [0.3, 0.5, 0.7, 0.9, 1.0]},
+    ),
+]
+
+# Provider-swap mutations (values come from available_providers at runtime)
+_PROVIDER_SWAPS: list[tuple[str, str]] = [
+    ("Try different STT provider", "stt"),
+    ("Try different LLM provider", "llm"),
+    ("Try different TTS provider", "tts"),
+    ("Try different VAD provider", "vad"),
 ]
 
 
 class PipelineProposer:
     """Proposes pipeline config changes for autoresearch.
 
+    Mutations include both threshold tuning AND provider swaps.
+    Provider swaps are constrained to what's actually available
+    (SDKs installed + API keys set).
+
     Mock mode: cycles through predefined mutations.
     LLM mode: uses an LLM to propose changes based on history + goals.
     """
 
-    def __init__(self, *, backend: str = "mock"):
+    def __init__(
+        self,
+        *,
+        backend: str = "mock",
+        available_providers: dict[str, list[str]] | None = None,
+    ):
         self._backend = backend
         self._mutation_idx = 0
+        self._available = available_providers or {
+            "stt": ["mock"],
+            "llm": ["mock"],
+            "tts": ["mock"],
+            "vad": ["energy"],
+        }
+        # Build combined mutation list
+        self._mutations = self._build_mutations()
+
+    def _build_mutations(self) -> list:
+        """Combine threshold mutations + provider swaps into one list."""
+        mutations = list(_THRESHOLD_MUTATIONS)
+
+        for hypothesis, category in _PROVIDER_SWAPS:
+            providers = self._available.get(category, [])
+            if len(providers) > 1:
+                mutations.append((
+                    hypothesis,
+                    f"{category}.provider",
+                    {"field": category, "sub": "provider", "values": providers, "is_swap": True},
+                ))
+
+        return mutations
 
     def propose(
         self,
@@ -98,7 +144,8 @@ class PipelineProposer:
 
     def _propose_mock(self, base_config: PipelineConfig, log: ExperimentLog) -> Proposal:
         """Deterministic mock proposer — cycles through mutations."""
-        mutation = _MUTATIONS[self._mutation_idx % len(_MUTATIONS)]
+        mutations = self._mutations
+        mutation = mutations[self._mutation_idx % len(mutations)]
         self._mutation_idx += 1
 
         hypothesis, path, spec = mutation
@@ -111,7 +158,14 @@ class PipelineProposer:
         new_value = random.choice(candidates) if candidates else spec["values"][0]
         setattr(section, spec["sub"], new_value)
 
-        diff = {path: {"from": current, "to": new_value}}
+        diff: dict[str, Any] = {path: {"from": current, "to": new_value}}
+
+        # On provider swap, also apply provider defaults
+        if spec.get("is_swap"):
+            defaults = PROVIDER_DEFAULTS.get(spec["field"], {}).get(new_value, {})
+            for key, val in defaults.items():
+                setattr(section, key, val)
+                diff[f"{spec['field']}.{key}"] = {"from": "auto", "to": val}
 
         return Proposal(
             config=new_config,

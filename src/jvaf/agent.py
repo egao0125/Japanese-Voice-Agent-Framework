@@ -5,11 +5,12 @@ from __future__ import annotations
 from jvaf.config import PipelineConfig
 from jvaf.core.events import EventBus
 from jvaf.core.pipeline import Pipeline
-from jvaf.providers.llm import LLMProvider, MockLLM
-from jvaf.providers.stt import MockSTT, STTProvider
+from jvaf.providers.llm import LLMProvider
+from jvaf.providers.registry import get_class
+from jvaf.providers.stt import STTProvider
 from jvaf.providers.transport import MockTransport, Transport
-from jvaf.providers.tts import MockTTS, TTSProvider
-from jvaf.providers.vad import EnergyVAD, VADProvider
+from jvaf.providers.tts import TTSProvider
+from jvaf.providers.vad import VADProvider
 
 
 class VoiceAgent:
@@ -87,17 +88,35 @@ class VoiceAgent:
         return MockTransport(sample_rate=self._config.transport.sample_rate)
 
     def _build_stt(self) -> STTProvider:
-        return MockSTT(language=self._config.stt.language)
+        cls = get_class("stt", self._config.stt.provider)
+        return cls(
+            language=self._config.stt.language,
+            model=self._config.stt.model,
+        )
 
     def _build_llm(self) -> LLMProvider:
-        return MockLLM(system_prompt=self._config.llm.system_prompt)
+        cls = get_class("llm", self._config.llm.provider)
+        return cls(
+            system_prompt=self._config.llm.system_prompt,
+            model=self._config.llm.model,
+            temperature=self._config.llm.temperature,
+            max_tokens=self._config.llm.max_tokens,
+        )
 
     def _build_tts(self) -> TTSProvider:
-        return MockTTS(sample_rate=self._config.tts.sample_rate)
+        cls = get_class("tts", self._config.tts.provider)
+        return cls(
+            sample_rate=self._config.tts.sample_rate,
+            voice_id=self._config.tts.voice_id,
+            model=self._config.tts.model,
+            speaker_id=self._config.tts.speaker_id,
+        )
 
     def _build_vad(self) -> VADProvider:
-        return EnergyVAD(
+        cls = get_class("vad", self._config.vad.provider)
+        return cls(
             threshold_db=self._config.vad.threshold_db,
+            threshold=self._config.vad.threshold,
             min_speech_ms=self._config.vad.min_speech_ms,
             min_silence_ms=self._config.vad.min_silence_ms,
         )

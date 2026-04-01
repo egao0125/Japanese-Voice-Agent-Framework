@@ -41,7 +41,10 @@ class AutoresearchLoop:
         self._output_dir.mkdir(parents=True, exist_ok=True)
 
         self._log = ExperimentLog(self._output_dir / "log.tsv")
-        self._proposer = PipelineProposer(backend=backend)
+        self._proposer = PipelineProposer(
+            backend=backend,
+            available_providers=program.available_providers or None,
+        )
         self._simulator = ConversationSimulator()
         self._evaluator = PipelineEvaluator()
 

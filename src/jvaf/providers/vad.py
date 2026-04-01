@@ -69,6 +69,7 @@ class EnergyVAD(VADProvider):
         threshold_db: float = -35.0,
         min_speech_ms: float = 250,
         min_silence_ms: float = 300,
+        **kwargs,
     ):
         super().__init__(min_speech_ms=min_speech_ms, min_silence_ms=min_silence_ms, name="EnergyVAD")
         self._threshold_db = threshold_db

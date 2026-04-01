@@ -48,6 +48,7 @@ class MockSTT(STTProvider):
         language: str = "ja",
         default_text: str = "もしもし、お世話になっております。",
         responses: list[str] | None = None,
+        **kwargs,
     ):
         super().__init__(language=language, name="MockSTT")
         self._default_text = default_text

@@ -11,23 +11,29 @@ from pydantic import BaseModel, Field
 class STTConfig(BaseModel):
     provider: str = "mock"
     language: str = "ja"
+    model: str = ""
 
 
 class LLMConfig(BaseModel):
     provider: str = "mock"
     model: str = ""
     system_prompt: str = ""
+    temperature: float = 0.7
+    max_tokens: int = 1024
 
 
 class TTSConfig(BaseModel):
     provider: str = "mock"
     voice_id: str = ""
     sample_rate: int = 16000
+    model: str = ""
+    speaker_id: int = 1
 
 
 class VADConfig(BaseModel):
     provider: str = "energy"
     threshold_db: float = -35.0
+    threshold: float = 0.5
     min_speech_ms: float = 250
     min_silence_ms: float = 300
 

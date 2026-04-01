@@ -54,6 +54,7 @@ class MockLLM(LLMProvider):
         response: str = "はい、承知いたしました。",
         responses: list[str] | None = None,
         system_prompt: str = "",
+        **kwargs,
     ):
         super().__init__(system_prompt=system_prompt, name="MockLLM")
         self._default_response = response

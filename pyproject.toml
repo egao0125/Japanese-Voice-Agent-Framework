@@ -32,8 +32,16 @@ deepgram = ["deepgram-sdk>=3.0"]
 openai = ["openai>=1.0"]
 elevenlabs = ["elevenlabs>=1.0"]
 silero = ["torch>=2.0", "torchaudio>=2.0"]
+voicevox = ["httpx>=0.27"]
 prosody = ["parselmouth>=0.4.3"]
 local = ["pyaudio>=0.2.14"]
+all-providers = [
+    "anthropic>=0.40",
+    "deepgram-sdk>=3.0",
+    "openai>=1.0",
+    "elevenlabs>=1.0",
+    "httpx>=0.27",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",

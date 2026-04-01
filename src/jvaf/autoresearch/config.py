@@ -29,6 +29,7 @@ class AutoresearchConfig:
     goals: dict[str, str] = field(default_factory=dict)
     constraints: dict[str, str] = field(default_factory=dict)
     test_scenarios: list[TestScenario] = field(default_factory=list)
+    available_providers: dict[str, list[str]] = field(default_factory=dict)
     iterations: int = 50
     backend: str = "mock"
     output_dir: str = "experiments"
@@ -75,6 +76,9 @@ class AutoresearchConfig:
                 config.test_scenarios = _parse_scenarios(sections[key])
                 break
 
+        # Parse available providers from constraints
+        config.available_providers = _detect_providers(config.constraints)
+
         return config
 
     def summary(self) -> str:
@@ -98,6 +102,40 @@ def _parse_kv_list(text: str) -> dict[str, str]:
             result[k.strip()] = v.strip()
         else:
             result[line] = ""
+    return result
+
+
+# Keyword-to-provider mapping for parsing program.md constraints
+_PROVIDER_KEYWORDS: dict[str, tuple[str, str]] = {
+    "deepgram": ("stt", "deepgram"),
+    "whisper": ("stt", "openai"),
+    "openai whisper": ("stt", "openai"),
+    "google stt": ("stt", "google"),
+    "claude": ("llm", "anthropic"),
+    "anthropic": ("llm", "anthropic"),
+    "gpt": ("llm", "openai"),
+    "openai gpt": ("llm", "openai"),
+    "gemini": ("llm", "google"),
+    "elevenlabs": ("tts", "elevenlabs"),
+    "openai tts": ("tts", "openai"),
+    "voicevox": ("tts", "voicevox"),
+    "silero": ("vad", "silero"),
+}
+
+
+def _detect_providers(constraints: dict[str, str]) -> dict[str, list[str]]:
+    """Extract available providers from constraints like 'Budget: Deepgram STT, Claude LLM'."""
+    result: dict[str, list[str]] = {
+        "stt": ["mock"],
+        "llm": ["mock"],
+        "tts": ["mock"],
+        "vad": ["energy"],
+    }
+    # Search all constraint values for provider keywords
+    all_text = " ".join(constraints.values()).lower()
+    for keyword, (category, provider) in _PROVIDER_KEYWORDS.items():
+        if keyword in all_text and provider not in result[category]:
+            result[category].append(provider)
     return result
 
 

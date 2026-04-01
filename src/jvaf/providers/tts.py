@@ -52,7 +52,7 @@ class MockTTS(TTSProvider):
     Simulates ~100ms per character for Japanese text.
     """
 
-    def __init__(self, *, sample_rate: int = 16000):
+    def __init__(self, *, sample_rate: int = 16000, **kwargs):
         super().__init__(sample_rate=sample_rate, name="MockTTS")
 
     async def synthesize(self, text: str) -> None:
