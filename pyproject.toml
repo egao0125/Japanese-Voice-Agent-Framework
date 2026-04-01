@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jvaf"
+version = "0.1.0"
+description = "Autoresearch framework for building real-time Japanese voice agents — autonomously optimizes STT, turn-taking, backchannel, and response quality"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "JVAF Contributors" }]
+keywords = ["voice", "agent", "japanese", "autoresearch", "aizuchi", "backchannel", "stt", "tts", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+dependencies = [
+    "numpy>=1.24",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.40"]
+deepgram = ["deepgram-sdk>=3.0"]
+openai = ["openai>=1.0"]
+elevenlabs = ["elevenlabs>=1.0"]
+silero = ["torch>=2.0", "torchaudio>=2.0"]
+prosody = ["parselmouth>=0.4.3"]
+local = ["pyaudio>=0.2.14"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+jvaf = "jvaf.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
