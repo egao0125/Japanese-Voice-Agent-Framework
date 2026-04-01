@@ -31,16 +31,22 @@ anthropic = ["anthropic>=0.40"]
 deepgram = ["deepgram-sdk>=3.0"]
 openai = ["openai>=1.0"]
 elevenlabs = ["elevenlabs>=1.0"]
+mistral = ["mistralai>=1.0"]
+groq = ["groq>=0.9"]
+google = ["google-cloud-speech>=2.0", "google-cloud-texttospeech>=2.0", "google-genai>=1.0"]
+huggingface = ["transformers>=4.40", "torch>=2.0", "accelerate>=0.30"]
 silero = ["torch>=2.0", "torchaudio>=2.0"]
 voicevox = ["httpx>=0.27"]
 prosody = ["parselmouth>=0.4.3"]
 local = ["pyaudio>=0.2.14"]
-all-providers = [
+all-cloud = [
     "anthropic>=0.40",
     "deepgram-sdk>=3.0",
     "openai>=1.0",
     "elevenlabs>=1.0",
-    "httpx>=0.27",
+    "mistralai>=1.0",
+    "groq>=0.9",
+    "google-genai>=1.0",
 ]
 dev = [
     "pytest>=8.0",

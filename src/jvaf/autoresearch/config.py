@@ -107,18 +107,31 @@ def _parse_kv_list(text: str) -> dict[str, str]:
 
 # Keyword-to-provider mapping for parsing program.md constraints
 _PROVIDER_KEYWORDS: dict[str, tuple[str, str]] = {
+    # STT
     "deepgram": ("stt", "deepgram"),
     "whisper": ("stt", "openai"),
     "openai whisper": ("stt", "openai"),
     "google stt": ("stt", "google"),
+    "google speech": ("stt", "google"),
+    "huggingface whisper": ("stt", "hf_whisper"),
+    "local whisper": ("stt", "hf_whisper"),
+    # LLM
     "claude": ("llm", "anthropic"),
     "anthropic": ("llm", "anthropic"),
     "gpt": ("llm", "openai"),
     "openai gpt": ("llm", "openai"),
     "gemini": ("llm", "google"),
+    "mistral": ("llm", "mistral"),
+    "groq": ("llm", "groq"),
+    "llama": ("llm", "hf_local"),
+    "huggingface llm": ("llm", "hf_local"),
+    "local llm": ("llm", "hf_local"),
+    # TTS
     "elevenlabs": ("tts", "elevenlabs"),
     "openai tts": ("tts", "openai"),
     "voicevox": ("tts", "voicevox"),
+    "google tts": ("tts", "google"),
+    # VAD
     "silero": ("vad", "silero"),
 }
 
